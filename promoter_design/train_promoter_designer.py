@@ -33,20 +33,21 @@ logger = logging.getLogger()
 
 
 class ModelParameters:
-    seifeatures_file = '../data/target.sei.names'
-    seimodel_file = '../data/best.sei.model.pth.tar'
+    seifeatures_file = '../data/promoter_design/target.sei.names'
+    seimodel_file = '../data/promoter_design/best.sei.model.pth.tar'
 
-    ref_file = '../data/Homo_sapiens.GRCh38.dna.primary_assembly.fa'
-    ref_file_mmap = '../data/Homo_sapiens.GRCh38.dna.primary_assembly.fa.mmap'
-    tsses_file = '../data/FANTOM_CAT.lv3_robust.tss.sortedby_fantomcage.hg38.v4.tsv'
+    ref_file = '../data/promoter_design/Homo_sapiens.GRCh38.dna.primary_assembly.fa'
+    ref_file_mmap = '../data/promoter_design/Homo_sapiens.GRCh38.dna.primary_assembly.fa.mmap'
+    # tsses_file = '../data/FANTOM_CAT.lv3_robust.tss.sortedby_fantomcage.hg38.v4.tsv'
+    tsses_file = '../data/promoter_design/FANTOM_CAT.lv3_robust.tss.sortedby_fantomcage.hg38.v4.tsv'
 
     fantom_files = [
-                    "../data/agg.plus.bw.bedgraph.bw",
-                    "../data/agg.minus.bw.bedgraph.bw"
+                    "../data/promoter_design/agg.plus.bw.bedgraph.bw",
+                    "../data/promoter_design/agg.minus.bw.bedgraph.bw"
                     ]
     fantom_blacklist_files = [
-         "../data/fantom.blacklist8.plus.bed.gz",
-         "../data/fantom.blacklist8.minus.bed.gz"
+         "/home/vinodr1/scratch/repos/ddsm/data/promoter_design/fantom.blacklist8.plus.bed.gz",
+         "/home/vinodr1/scratch/repos/ddsm/data/promoter_design/fantom.blacklist8.minus.bed.gz"
         ]
 
     diffusion_weights_file = 'steps400.cat4.speed_balance.time4.0.samples100000.pth'
@@ -91,6 +92,7 @@ class GenomicSignalFeatures(Target):
 
     def get_feature_data(self, chrom, start, end, nan_as_zero=True, feature_indices=None):
         if not self.initialized:
+            # _ = [print(path) for path in self.input_paths]
             self.data = [pyBigWig.open(path) for path in self.input_paths]
             if self.blacklists is not None:
                 self.blacklists = [tabix.open(blacklist) for blacklist in self.blacklists]
@@ -115,6 +117,8 @@ class GenomicSignalFeatures(Target):
                             wigmat[blacklist_indices, np.fmax(int(s) - start, 0): int(e) - start] = 0
                 else:
                     for blacklist in self.blacklists:
+                        # print(chrom, start, end)
+                        # print(blacklist)
                         for _, s, e in blacklist.query(chrom, start, end):
                             wigmat[:, np.fmax(int(s) - start, 0): int(e) - start] = 0
             else:
@@ -140,7 +144,7 @@ class TSSDatasetS(Dataset):
         self.genome = MemmapGenome(
             input_path=config.ref_file,
             memmapfile=config.ref_file_mmap,
-            blacklist_regions='hg38'
+            blacklist_regions='hg38', initialized=None,
         )
         self.tfeature = GenomicSignalFeatures(
             config.fantom_files,
@@ -179,6 +183,7 @@ class TSSDatasetS(Dataset):
 
         signal = self.tfeature.get_feature_data(chrm, pos - int(self.seqlength / 2) + offset,
                                                 pos + int(self.seqlength / 2) + offset)
+        # print(signal)
         if strand == '-':
             signal = signal[::-1, ::-1]
         return np.concatenate([seq, signal.T], axis=-1).astype(np.float32)
@@ -320,9 +325,13 @@ if __name__ == '__main__':
     time_dependent_cums = torch.zeros(config.n_time_steps).to(config.device)
     time_dependent_counts = torch.zeros(config.n_time_steps).to(config.device)
 
+    print('DEVICE ', config.device)
+
     avg_loss = 0.
     num_items = 0
+    print('about to enumerate...')
     for i, x in enumerate(data_loader):
+        # print('enumerating...')
         x = x[..., :4]
         random_t = torch.randint(0, config.n_time_steps, (x.shape[0],))
 
@@ -341,6 +350,8 @@ if __name__ == '__main__':
         perturbed_x_grad = perturbed_x_grad.to(config.device)
         random_t = random_t.to(config.device)
         perturbed_v = sb._inverse(perturbed_x)
+
+
 
         order = np.random.permutation(np.arange(config.ncat))
 

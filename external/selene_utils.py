@@ -85,16 +85,24 @@ class MemmapGenome(Genome):
         bases_order=None,
         init_unpicklable=False,
         memmapfile=None,
+        initialized=None,
+        
     ):
         super().__init__(
             input_path, blacklist_regions=blacklist_regions, bases_order=bases_order,
         )
         self.memmapfile = memmapfile
+        # self.initialized=False,
         if init_unpicklable:
             self._unpicklable_init()
+            self.initialized=True
+
+        else:
+            self.initialized=False
 
     def _unpicklable_init(self):
-        if not self.initialized:
+        if not self.initialized: # True:
+            # print('NOT INITALIZED')
             self.genome = pyfaidx.Fasta(self.input_path)
             self.chrs = sorted(self.genome.keys())
             self.len_chrs = self._get_len_chrs()
@@ -126,6 +134,7 @@ class MemmapGenome(Genome):
                     self.sequence_data, (4, int(self.sequence_data.shape[0] / 4))
                 )
             else:
+                
                 # convert all sequences into encoding
                 self.sequence_data = np.zeros((4, self.lens.sum()), dtype=np.float32)
                 for c in self.chrs:
@@ -145,6 +154,7 @@ class MemmapGenome(Genome):
                     )
 
             self.initialized = True
+        # print('Done')
 
     def init(func):
         # delay initlization to allow  multiprocessing
